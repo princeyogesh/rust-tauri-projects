@@ -1,5 +1,5 @@
 
-use leptos::{leptos_dom::logging::console_log, prelude::*};
+use leptos::{leptos_dom::logging::console_log, prelude::*, prelude::NodeRef};
 use leptos::task::spawn_local;
 use leptos::*;
 use serde::Serialize;
@@ -27,7 +27,11 @@ pub fn App() -> impl IntoView {
     
    console_log("HELLO FROM LEPTOS");
    let open = RwSignal::new(false);
+   let new_expense_name = RwSignal::new(String::new());
+   let new_expense_amount = RwSignal::new(String::new());
+   let new_expense_category = RwSignal::new(String::new());
    let (exp_sig, set_exp_sig) = signal(0);
+
    let get_till_now_expenses = move || {
         spawn_local(async move {
             let args = serde_wasm_bindgen::to_value(&InitExpenseArgs { dummyarg: "yogsh" }).unwrap();
@@ -47,15 +51,16 @@ pub fn App() -> impl IntoView {
     // The dialog can be opened by clicking the button  
    view! {
         <ConfigProvider>
-             <Button on_click=move |_| open.set(true)>"Enter new Expense"</Button>
-            <CDialog curstate = open/>
+            <DurationView />
+            <Button on_click=move |_| open.set(true)>"Enter new Expense"</Button>
+            <CDialog curstate = open exp_name=new_expense_name exp_amount=new_expense_amount exp_category= new_expense_category />
             <h1>"Total Expenses: " {exp_sig} </h1>
         </ConfigProvider>    
     }
 }
 
 #[component]
-pub fn CDialog(curstate: RwSignal<bool>) -> impl IntoView {
+pub fn CDialog(curstate: RwSignal<bool>, exp_name:RwSignal<String>, exp_amount: RwSignal<String>, exp_category: RwSignal<String>) -> impl IntoView {
     let setter = use_context::<WriteSignal<i32>>().expect("Setter not found in context");
     view! {
         <Dialog open =curstate>
@@ -63,13 +68,14 @@ pub fn CDialog(curstate: RwSignal<bool>) -> impl IntoView {
             <DialogBody>
                 <DialogTitle>"Creating new expense"</DialogTitle>
                 <DialogContent>
-                    <TextField label="Expense Name".to_string() placeholder="Enter the name of the expense".to_string() />
-                    <TextField label="Amount".to_string() placeholder="Enter the amount".to_string() />
+                    <TextField label="Expense Name".to_string() placeholder="Enter the name of the expense".to_string() RWsig= exp_name />
+                    <TextField label="Amount".to_string() placeholder="Enter the amount".to_string() RWsig=exp_amount />
                     <CDatePicker  />
-                    <TextField label="Category".to_string() placeholder="Enter the category of the expense".to_string()/>
+                   
+                    <TextField label="Category".to_string() placeholder="Enter the category of the expense".to_string() RWsig=exp_category/>
                 </DialogContent>
                 <DialogActions>
-                    <Button on_click=move|_| {*setter.write() += 10;} appearance=ButtonAppearance::Primary >"Confirm the expense"</Button>
+                    <Button on_click=move|_| {*setter.write() += exp_amount.get().parse::<i32>().unwrap_or(3) ;} appearance=ButtonAppearance::Primary >"Confirm the expense"</Button>
                 </DialogActions>
             </DialogBody>
         </DialogSurface>
@@ -78,7 +84,7 @@ pub fn CDialog(curstate: RwSignal<bool>) -> impl IntoView {
 }
 
 #[component]
-pub fn TextField(label :String, placeholder: String)-> impl IntoView {
+pub fn TextField(label :String, placeholder: String, RWsig:RwSignal<String>)-> impl IntoView {
 
     view! {
         <Layout has_sider=true>
@@ -87,7 +93,6 @@ pub fn TextField(label :String, placeholder: String)-> impl IntoView {
             </LayoutSider>
                 <Textarea />
         </Layout>
-           // <input type="text" id={{label}} class="form-control" placeholder="Enter the name of the expense"/>
        
     }
 }
@@ -105,4 +110,55 @@ pub fn CDatePicker() -> impl IntoView {
         </Layout>
     }
 }   
+#[component]
+pub fn DurationView() -> impl IntoView {
+    let open = RwSignal::new(false);
+    let position = RwSignal::new(DrawerPosition::Top);
+    let viewtype = RwSignal::new(String::new());
+
+    let open_f = move |new_position: DrawerPosition, v_type: String| {
+        position.set(new_position);
+        viewtype.set(v_type);
+        open.set(true);
+    };
+    view! {
+        <Button on_click=move |_| open_f(DrawerPosition::Left, "monthly".to_string())>"MonthlyView"</Button>
+        <Button on_click=move |_| open_f(DrawerPosition::Left, "yearly".to_string())>"AnnualView"</Button>
+
+        <OverlayDrawer open position>
+        <DrawerHeader>
+          <DrawerHeaderTitle>
+            <DrawerHeaderTitleAction slot>
+                 <Button
+                    appearance=ButtonAppearance::Subtle
+                    on_click=move |_| open.set(false)
+                >
+                    "x"
+                </Button>
+            </DrawerHeaderTitleAction>
+             {viewtype} " View"
+          </DrawerHeaderTitle>
+        </DrawerHeader>
+        <DrawerBody>
+          <TablePanel v_type = viewtype.get() />
+        </DrawerBody>
+    </OverlayDrawer>
+    }
+}
+
+#[component]
+pub fn TablePanel(v_type: String) -> impl IntoView {    //v_type is used to determine the type of view (monthly or yearly) and can be used to fetch data accordingly
+    view! {
+    <Table>
+        <TableHeader>
+            <TableRow>
+                <TableHeaderCell>"Date"</TableHeaderCell>
+                <TableHeaderCell>"Description"</TableHeaderCell>
+                <TableHeaderCell>"Cost"</TableHeaderCell>
+            </TableRow>
+        </TableHeader>
+        
+    </Table>
+    }
+}
                 
